@@ -11,3 +11,7 @@ techniques :
 1- Correlation 
 
 2- Flot optique (dérivée locale image par image)
+
+
+Images disponibles sur : 
+https://www.lirmm.fr/~strauss/Master2Vision/TravauxPratiquesHMIN320.html
