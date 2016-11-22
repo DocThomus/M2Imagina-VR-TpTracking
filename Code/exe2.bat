@@ -1,1 +1,0 @@
-tracking.exe ..\Images\SequenceSansVariation\Image001.tif

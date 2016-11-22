@@ -1,1 +1,0 @@
-g++ -o tracking.exe PoursuiteCible.cpp -O2 -lgdi32

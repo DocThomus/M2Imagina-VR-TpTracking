@@ -13,13 +13,19 @@
 #define __MINGW_FTELLI32
 #endif
 
+#define margeDeRecherche 5
+
 #define cimg_use_tif
 #include "CImg.h"
 #include "string.h"
 #include "stdio.h"
 #include "TraitementImage.h"
+#include <utility>
+#include <vector>
 
 using namespace cimg_library;
+
+std::pair<double,double> calculateDeltas(const CImg<unsigned char> &Image_lue, const int x0, const int x1, const int y0, const int y1, double* Valeur_motif);
 
 
 int main(int argc, char *argv[])
@@ -67,6 +73,8 @@ int main(int argc, char *argv[])
 	
 	ok = 1 ;
 	increment = 1 ;
+
+
 	
 	while(ok)
 	{
@@ -140,10 +148,10 @@ int main(int argc, char *argv[])
 					}
 					else 
 					{
-					 carre_x[0] = x ;
-					 carre_x[1] = x ;
-					 carre_y[0] = y ;
-					 carre_y[1] = y ;
+					 	carre_x[0] = x ;
+					 	carre_x[1] = x ;
+					 	carre_y[0] = y ;
+					 	carre_y[1] = y ;
 					}
 					n++ ;
 				}
@@ -158,14 +166,12 @@ int main(int argc, char *argv[])
 
 			if(dim == 0) return 0 ;
 			
-			Valeur_motif = ALLOCATION(dim, double) ;
-			Derivee_temporelle = ALLOCATION(dim, double) ;
-			Point_x = ALLOCATION(dim, int) ;
-			Point_y = ALLOCATION(dim, int) ;
-			
+			Valeur_motif = ALLOCATION(dim, double) ; 
+			Derivee_temporelle = ALLOCATION(dim, double) ; 
+			Point_x = ALLOCATION(dim, int) ; 
+			Point_y = ALLOCATION(dim, int) ; 
 			// Derivation de la premiere image
 			Derive_image( Image, Image_x, Image_y, Nx, Ny, 0.4 ) ;
-						
 			delta_x = 0.0 ;
 			delta_y = 0.0 ;
 			
@@ -173,7 +179,7 @@ int main(int argc, char *argv[])
 			Detail.crop(carre_x[0], carre_y[0], carre_x[1], carre_y[1]) ;
 			
 			// rechargement de l'image originale
-			Image_lue.load(NomFichier) ;
+			Image_lue.load(NomFichier) ;	
 			Image_disp.display(Image_lue) ;
 			
 			// conservation des points du motif
@@ -183,7 +189,7 @@ int main(int argc, char *argv[])
 			{
 				for( x=carre_x[0] ; x<carre_x[1] ; x++, m++)
 				{		
- 				n = y*Nx+x ;
+ 					n = y*Nx+x ;
 					Valeur_motif[m] = Image[n] ;
 					Point_x[m] = x ;
 					Point_y[m] = y ;
@@ -191,25 +197,31 @@ int main(int argc, char *argv[])
 			}
 		} // fin de if increment == 1
 
-		else 
-		{
+		else {
 
 			Valeur_image = Image_lue.begin() ;
-		 Detail= Image_lue ;
+		 	Detail= Image_lue ;
 			Detail.crop(carre_x[0],carre_y[0],carre_x[1],carre_y[1]) ;
 			Valeur_detail = Detail.begin() ;
 			pti = Valeur_motif ;
 		
-			for(n=0 ; n<dim ; n++, Valeur_detail++, pti++)
- 		{
-		  m=Point_y[n]*Nx+Point_x[n];
+			for(n=0 ; n<dim ; n++, Valeur_detail++, pti++) {
+		  		m=Point_y[n]*Nx+Point_x[n];
 				Derivee_temporelle[n] = (*pti) - Image_transformee[m] ;					
 			}
 			
 			// C'est la que vous devez mettre a jour
 			// la position du motif dans l'image courante
- 		delta_x += 0.0 ;
- 		delta_y += 0.0 ;
+
+			std::pair<double, double> deltas = calculateDeltas(Image_lue, carre_x[0], carre_x[1], carre_y[0], carre_y[1], Valeur_motif);
+			
+ 			delta_x = deltas.first;
+ 			delta_y = deltas.second;
+
+ 			carre_x[0] += delta_x;
+ 			carre_x[1] += delta_x;
+ 			carre_y[0] += delta_y;
+ 			carre_y[1] += delta_y;
 		}
 	
 			
@@ -218,25 +230,61 @@ int main(int argc, char *argv[])
 		
 		Image_lue.draw_rectangle(carre_x[0],carre_y[0],carre_x[1],carre_y[1],blue,0.3).display(Image_disp);
 		
-	 // pour que l'image ne s'incremente que si on passe la souris sur la fenetre
+	 	// pour que l'image ne s'incremente que si on passe la souris sur la fenetre
 		Image_disp.wait();
-	 while(Image_disp.button()) ; 
+	 	while(Image_disp.button()) ; 
 	
 		increment ++ ;
 		//increment = Min(increment,3) ;
 
 	}
 	
- DESALLOCATION(Image) ;
- DESALLOCATION(Image_x) ;
- DESALLOCATION(Image_y) ;
- DESALLOCATION(Image_transformee) ;
- DESALLOCATION(Valeur_motif) ;
- DESALLOCATION(Derivee_temporelle) ;
- DESALLOCATION(Point_x) ;
- DESALLOCATION(Point_y) ;
+ 	DESALLOCATION(Image) ;
+ 	DESALLOCATION(Image_x) ;
+ 	DESALLOCATION(Image_y) ;
+ 	DESALLOCATION(Image_transformee) ;
+ 	DESALLOCATION(Valeur_motif) ;
+ 	DESALLOCATION(Derivee_temporelle) ;
+ 	DESALLOCATION(Point_x) ;
+ 	DESALLOCATION(Point_y) ;
 		
 	return 0 ;
 
+}
+
+std::pair<double,double> calculateDeltas(const CImg<unsigned char> &Image_lue, const int x0, const int x1, const int y0, const int y1, double* Valeur_motif) {
+	// On cherche dans l'image un motif potentiel qui maximisera la correlation avec le motif précédent (valeur_motif)
+
+	std::pair<double,double> deltas;
+	double correlation = 0.0;
+
+	for (int dy = -margeDeRecherche; dy < margeDeRecherche + 1; dy++) { 
+		for (int dx = -margeDeRecherche; dx < margeDeRecherche + 1; dx++) {
+			// On cherche le motif potentiel à proximité du motif précédent, dans un rayon définit par margeDeRecherche.
+
+			CImg <unsigned char> motif_Potentiel_CImg = Image_lue;
+			motif_Potentiel_CImg.crop(x0 + dx, y0 + dy, x1 + dx, y1 + dy); // Le motif potentiel
+
+			// Conversion du motif potentiel en tableau
+			int nx = x1 - x0 + 1;
+			int ny = y1 - y0 + 1;
+			std::vector<double> motif_Potentiel(nx*ny);
+			for(int i = 0; i < nx*ny; i++) {
+				motif_Potentiel[i] = motif_Potentiel_CImg[i];
+			}
+
+			// calcul de la correlation=
+			double c = CorrelationPearson(Valeur_motif, motif_Potentiel.data(), nx, ny);
+
+			// On garde le motif dont la correlation est maximale.
+			if (c > correlation) {
+				correlation = c;
+				deltas.first = dx;
+				deltas.second = dy;
+			}
+		}
+	}
+
+	return deltas;
 }
 

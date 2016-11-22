@@ -619,7 +619,7 @@ int Transformation(double *Image_originale, double *Image_transformee, int Nx, i
 double CorrelationPearson(double *Image_1, double *Image_2, int Nx, int Ny) 
 {
 	int N ;
- double	*pt1, *pt2, *fin ;
+ 	double	*pt1, *pt2, *fin ;
 	double moy1, moy2 ;
 	double var1, var2 ;
 	double resultat = 0.0 ;
